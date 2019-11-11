@@ -8,15 +8,20 @@ import java.util.concurrent.Semaphore;
 
 
 public class PetriNet<T> {
-
     HashMap<T, Integer> places;
     private final Semaphore fireSecurity;
-
     private final BlockingQueue<Semaphore> waitingThreads;
     private Iterator<Semaphore> iterWaitingThreads;
 
     public PetriNet(Map<T, Integer> initial, boolean fair) {
         places = ((initial == null) ? new HashMap<>() : new HashMap<>(initial));
+        Iterator<Map.Entry<T, Integer>> iteratorPlace = places.entrySet().iterator();
+        while (iteratorPlace.hasNext()) {
+            Map.Entry<T, Integer> p = iteratorPlace.next();
+            if (p.getValue() == 0) {
+                iteratorPlace.remove();
+            }
+        }
         this.fireSecurity = new Semaphore(1, true);
         this.waitingThreads = new LinkedBlockingQueue<Semaphore>();
     }
@@ -61,7 +66,9 @@ public class PetriNet<T> {
         Transition<T> result = null;
         Semaphore mySemaphore = null;
         while (true) {
-            fireSecurity.acquire();
+            if (mySemaphore == null) {
+                fireSecurity.acquire();
+            }
             for (Transition<T> t: transitions) {
                 if (fireOne(places, t)) {
                     result = t;
@@ -74,7 +81,8 @@ public class PetriNet<T> {
                     waitingThreads.add(mySemaphore);
                 } else {
                     if (iterWaitingThreads.hasNext()) {
-                        iterWaitingThreads.next().release();
+                        Semaphore s = iterWaitingThreads.next();
+                        s.release();
                     } else {
                         fireSecurity.release();
                     }
@@ -82,11 +90,12 @@ public class PetriNet<T> {
                 mySemaphore.acquire();
             } else {
                 if (mySemaphore != null) {
-                    iterWaitingThreads.remove();
+                    waitingThreads.remove(mySemaphore);
                 }
                 iterWaitingThreads = waitingThreads.iterator();
                 if (iterWaitingThreads.hasNext()) {
-                    iterWaitingThreads.next().release();
+                    Semaphore s = iterWaitingThreads.next();
+                    s.release();
                 } else {
                     fireSecurity.release();
                 }
@@ -105,7 +114,11 @@ public class PetriNet<T> {
             Map.Entry<T, Integer> arc = inputIterator.next();
             T arcKey = arc.getKey();
             int arcVal = arc.getValue();
-            places.put(arcKey, places.get(arcKey) - arcVal);
+            if (places.get(arcKey) - arcVal == 0) {
+                places.remove(arcKey);
+            } else {
+                places.put(arcKey, places.get(arcKey) - arcVal);
+            }
         }
         Iterator<T> resetIterator = transition.resetIterator();
         while (resetIterator.hasNext()) {
