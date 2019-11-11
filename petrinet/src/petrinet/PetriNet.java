@@ -9,7 +9,7 @@ import java.util.concurrent.Semaphore;
 
 public class PetriNet<T> {
 
-    private HashMap<T, Integer> places;
+    HashMap<T, Integer> places;
     private final Semaphore fireSecurity;
 
     private final BlockingQueue<Semaphore> waitingThreads;
@@ -22,6 +22,9 @@ public class PetriNet<T> {
     }
 
     public Set<Map<T, Integer>> reachable(Collection<Transition<T>> transitions) {
+        if (transitions == null) {
+            transitions = new LinkedList<>();
+        }
         Set<Map<T, Integer>> result = new HashSet<>();
         Queue<Map<T, Integer>> queue = new LinkedList<>();
         Map<T, Integer> first_state = new HashMap<>();
@@ -44,7 +47,6 @@ public class PetriNet<T> {
                 fireOne(new_state, t);
                 if (!result.contains(new_state)) {
                     queue.add(new_state);
-                } else {
                     result.add(new_state);
                 }
             }
@@ -95,7 +97,7 @@ public class PetriNet<T> {
 
 
     boolean fireOne(Map<T, Integer> places, Transition<T> transition) {
-        if (!testEnabledTransition(transition)) {
+        if (!testEnabledTransition(places, transition)) {
             return false;
         }
         Iterator<Map.Entry<T, Integer>> inputIterator = transition.inputIterator();
@@ -121,7 +123,7 @@ public class PetriNet<T> {
     }
 
 
-    boolean testEnabledTransition(Transition<T> transition) {
+    boolean testEnabledTransition(Map<T, Integer> places, Transition<T> transition) {
         if (transition == null || !transition.arcNotConflict()) {
             return false;
         }
