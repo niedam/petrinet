@@ -27,10 +27,15 @@ public class PetriNet<T> {
         return null;
     }
 
-    void fireOne(Transition<T> transition) throws InterruptedException {
+    boolean fireOne(Transition<T> transition) throws InterruptedException {
+        if (transition == null || !transition.arcNotConflict()) {
+            return false;
+        }
         fireSecurity.acquire();
-        if (transition == null)
-            return;
+        if (!testEnabledTransition(transition)) {
+            fireSecurity.release();
+            return false;
+        }
         Iterator<Map.Entry<T, Integer>> inputIterator = transition.inputIterator();
         while (inputIterator.hasNext()) {
             Map.Entry<T, Integer> arc = inputIterator.next();
@@ -51,6 +56,7 @@ public class PetriNet<T> {
             places.put(arcKey, arcOldVal + arcNewTok);
         }
         fireSecurity.release();
+        return true;
     }
 
 
