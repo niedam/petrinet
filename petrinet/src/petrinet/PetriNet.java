@@ -9,35 +9,59 @@ import java.util.concurrent.Semaphore;
 
 public class PetriNet<T> {
 
-    private ConcurrentHashMap<T, Integer> places;
+    private HashMap<T, Integer> places;
     private final Semaphore fireSecurity;
-    private final Semaphore fireWaiting;
 
     private final BlockingQueue<Semaphore> waitingThreads;
     private Iterator<Semaphore> iterWaitingThreads;
-    private volatile int countFireWaiting;
-    //private final boolean fair;
 
     public PetriNet(Map<T, Integer> initial, boolean fair) {
-        places = ((initial == null) ? new ConcurrentHashMap<>() : new ConcurrentHashMap<>(initial));
-        this.countFireWaiting = 0;
+        places = ((initial == null) ? new HashMap<>() : new HashMap<>(initial));
         this.fireSecurity = new Semaphore(1, true);
-        this.fireWaiting = new Semaphore(0, fair);
         this.waitingThreads = new LinkedBlockingQueue<Semaphore>();
-        //this.waitingThreads = Collections.synchronizedList(new LinkedList<Semaphore>());
     }
 
     public Set<Map<T, Integer>> reachable(Collection<Transition<T>> transitions) {
-        return null;
+        Set<Map<T, Integer>> result = new HashSet<>();
+        Queue<Map<T, Integer>> queue = new LinkedList<>();
+        Map<T, Integer> first_state = new HashMap<>();
+        try {
+            fireSecurity.acquire();
+            try {
+                first_state = new HashMap<>(places);
+            } finally {
+                fireSecurity.release();
+            }
+        } catch(final InterruptedException e) {
+            System.err.println(e);
+        }
+        result.add(first_state);
+        queue.add(first_state);
+        while (!queue.isEmpty()) {
+            Map<T, Integer> state = queue.poll();
+            for (Transition<T> t: transitions) {
+                Map<T, Integer> new_state = new HashMap<>(state);
+                fireOne(new_state, t);
+                if (!result.contains(new_state)) {
+                    queue.add(new_state);
+                } else {
+                    result.add(new_state);
+                }
+            }
+        }
+        return result;
     }
 
     public Transition<T> fire(Collection<Transition<T>> transitions) throws InterruptedException {
+        if (transitions == null) {
+            transitions = new LinkedList<>();
+        }
         Transition<T> result = null;
         Semaphore mySemaphore = null;
         while (true) {
             fireSecurity.acquire();
             for (Transition<T> t: transitions) {
-                if (fireOne(t)) {
+                if (fireOne(places, t)) {
                     result = t;
                     break;
                 }
@@ -46,11 +70,12 @@ public class PetriNet<T> {
                 if (mySemaphore == null) {
                     mySemaphore = new Semaphore(0);
                     waitingThreads.add(mySemaphore);
-                }
-                if (iterWaitingThreads.hasNext()) {
-                    iterWaitingThreads.next().release();
                 } else {
-                    fireSecurity.release();
+                    if (iterWaitingThreads.hasNext()) {
+                        iterWaitingThreads.next().release();
+                    } else {
+                        fireSecurity.release();
+                    }
                 }
                 mySemaphore.acquire();
             } else {
@@ -69,7 +94,7 @@ public class PetriNet<T> {
     }
 
 
-    boolean fireOne(Transition<T> transition) throws InterruptedException {
+    boolean fireOne(Map<T, Integer> places, Transition<T> transition) {
         if (!testEnabledTransition(transition)) {
             return false;
         }
