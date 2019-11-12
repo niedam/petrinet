@@ -8,126 +8,90 @@ import alternator.Places.*;
 
 
 public class Main {
-
     private static PetriNet<Place> petriNet;
 
-    private static final Mutex mutex = new Places.Mutex();
-
-    private static final LocalSection localA = new Places.LocalSection("A");
-    private static final CriticalSection criticalA = new Places.CriticalSection("A");
-
-    private static final LocalSection localB = new Places.LocalSection("B");
-    private static final CriticalSection criticalB = new Places.CriticalSection("B");
-
-    private static final LocalSection localC = new Places.LocalSection("C");
-    private static final CriticalSection criticalC = new Places.CriticalSection("C");
-
-    List<Transition<Place>> makeTransitionList(LocalSection local, CriticalSection critical) {
-        List<Transition<Place>> result = new LinkedList<>();
-        result.add(new TransitionBuilder<Place>()
-                .addInput(mutex, 1)
-                .addInput(local, 1)
-                .addOutput(critical, 1)
-                .build());
-        result.add(new TransitionBuilder<Place>()
-                .addInput(critical, 1)
-                .addOutput(local, 1)
-                .addOutput(mutex, 1)
-                .build());
-        return result;
-    }
-
-
-
-
-
     protected static class Process implements Runnable {
-        private final String name;
-        private final Transition<Place> preProtocol;
-        private final Transition<Place> postProtocol;
         private final List<Transition<Place>> transitions;
+        private final Transition<Place> runCriticalSection;
 
-        Process(String name, LocalSection local, CriticalSection critical) {
-            this.name = name;
-            this.preProtocol = new TransitionBuilder<Place>()
-                    .addInput(local, 1)
-                    .addInput(mutex, 1)
-                    .addOutput(critical, 1)
-                    .build();
-            this.postProtocol = new TransitionBuilder<Place>()
-                    .addInput(critical, 1)
-                    .addOutput(local, 1)
-                    .addOutput(mutex, 1)
-                    .build();
-            this.transitions = new LinkedList<>();
-            transitions.add(preProtocol);
-            transitions.add(postProtocol);
+        Process(ThreadPack threadPack) {
+            transitions = threadPack.transitions;
+            runCriticalSection = threadPack.runCriticalSection;
         }
 
         @Override
         public void run() {
             while (true) {
                 try {
-                    if (preProtocol == petriNet.fire(transitions)) {
-                        System.out.print(name + '.');
+                    if (runCriticalSection == petriNet.fire(transitions)) {
+                        System.out.print(Thread.currentThread().getName() + '.');
                     }
                 } catch (InterruptedException e) {
                     System.out.println("co");
-                }
-                if (name == "A" || name == "B") {
-                    int j = 0;
-                    for (int k = 0; k < 10; k++) {
-                        for (int i = 0; i < 1000 * 1000 * 1000; i++) {
-                            j = j + k + i;
-                        }
-                    }
-                    //System.err.print(j);
-                    //System.err.print(name);
-                    
                 }
             }
         }
     }
 
+    private static void printStateSet(Set<Map<Place, Integer>> markingsSet) {
+        for (Map<Place, Integer> i: markingsSet) {
+            for (Map.Entry<Place, Integer> j: i.entrySet()) {
+                System.out.print("(" + j.getKey().getName() + ", " + j.getValue() + ") ");
+            }
+            System.out.print('\n');
+        }
+    }
+
+    private static boolean testSafety(Map<Place, Integer> map, CriticalSection c1,
+                                        CriticalSection c2, CriticalSection c3) {
+        return (!((map.get(c1) != null && map.get(c2) != null)
+                    || (map.get(c1) != null && map.get(c3) != null)
+                    || (map.get(c2) != null && map.get(c3) != null))?true:false);
+    }
 
     public static void main(String[] args) throws InterruptedException {
         Map<Place, Integer> enviroment = new HashMap<>();
-        enviroment.put(localA, 1);
-        enviroment.put(localB, 1);
-        enviroment.put(localC, 1);
-        enviroment.put(mutex, 1);
+        ThreadPack packA = ThreadPack.makeThreadPack("A");
+        ThreadPack packB = ThreadPack.makeThreadPack("B");
+        ThreadPack packC = ThreadPack.makeThreadPack("C");
+        enviroment.put(packA.readySection, 1);
+        enviroment.put(packB.readySection, 1);
+        enviroment.put(packC.readySection, 1);
+        enviroment.put(Mutex.get(), 1);
         petriNet = new PetriNet<>(enviroment, false);
 
-        List<Transition<Place>> transitions = new LinkedList<>();
+        Transition<Place> noDeadLockTransition = new TransitionBuilder<Place>()
+                .addInput(Mutex.get(), 1)
+                .addInput(packA.waitingSection, 1)
+                .addInput(packB.waitingSection, 1)
+                .addInput(packC.waitingSection, 1)
+                .addOutput(Mutex.get(), 1)
+                .addOutput(packA.readySection, 1)
+                .addOutput(packB.readySection, 1)
+                .addOutput(packC.readySection, 1)
+                .build();
+        List <Transition<Place>> transitions = new LinkedList<>();
+        transitions.addAll(packA.transitions);
+        transitions.addAll(packB.transitions);
+        transitions.addAll(packC.transitions);
+        transitions.add(noDeadLockTransition);
+        Set<Map<Place,Integer>> markingsSet = petriNet.reachable(transitions);
+        System.out.println("Posible marking state: " + markingsSet.size());
 
-        transitions.addAll(makeTransList(localA, criticalA));
-        transitions.addAll(makeTransList(localB, criticalB));
-        transitions.addAll(makeTransList(localC, criticalC));
+        boolean safety = true;
+        for (Map<Place, Integer> map: markingsSet) {
+            safety = safety && testSafety(map, packA.criticalSection, packB.criticalSection, packC.criticalSection);
+        }
+        System.out.println("All states are safety: " + safety);
 
-        List<Transition<Place>> ta = makeTransList(localA, criticalA);
-        List<Transition<Place>> tb = makeTransList(localB, criticalB);
-
-        //petriNet.fire(ta);
-        //petriNet.fire(tb);
-
-        Thread tB = new Thread(new Process("B", localB, criticalB));
-
-        /*for (int i = 0; i <= 1000 * 1000 * 100; i++) {
-            int j = i + 1;
-        }*/
-        //petriNet = petriNet;
-
-        //petriNet.fire(ta);
-        //petriNet = petriNet;
-
-
-        Thread tA = new Thread(new Process("A", localA, criticalA));
-
-        Thread tC = new Thread(new Process("C", localC, criticalC));
-
-        tA.start();
-        tB.start();
-        tC.start();
-
+        packA.addTransition(noDeadLockTransition);
+        packB.addTransition(noDeadLockTransition);
+        packC.addTransition(noDeadLockTransition);
+        Thread threadA = new Thread(new Process(packA), "A");
+        Thread threadB = new Thread(new Process(packB), "B");
+        Thread threadC = new Thread(new Process(packC), "C");
+        threadA.start();
+        threadB.start();
+        threadC.start();
     }
 }

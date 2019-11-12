@@ -80,7 +80,7 @@ public class PetriNet<T> {
                     mySemaphore = new Semaphore(0);
                     waitingThreads.add(mySemaphore);
                 }
-                if (iterWaitingThreads.hasNext()) {
+                if (iterWaitingThreads != null && iterWaitingThreads.hasNext()) {
                     Semaphore s = iterWaitingThreads.next();
                     s.release();
                 } else {
