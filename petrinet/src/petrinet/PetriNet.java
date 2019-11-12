@@ -79,13 +79,12 @@ public class PetriNet<T> {
                 if (mySemaphore == null) {
                     mySemaphore = new Semaphore(0);
                     waitingThreads.add(mySemaphore);
+                }
+                if (iterWaitingThreads.hasNext()) {
+                    Semaphore s = iterWaitingThreads.next();
+                    s.release();
                 } else {
-                    if (iterWaitingThreads.hasNext()) {
-                        Semaphore s = iterWaitingThreads.next();
-                        s.release();
-                    } else {
-                        fireSecurity.release();
-                    }
+                    fireSecurity.release();
                 }
                 mySemaphore.acquire();
             } else {
@@ -103,7 +102,6 @@ public class PetriNet<T> {
             }
         }
     }
-
 
     boolean fireOne(Map<T, Integer> places, Transition<T> transition) {
         if (!testEnabledTransition(places, transition)) {

@@ -37,22 +37,7 @@ public class Main {
         return result;
     }
 
-    public static List<Transition<Place>> makeTransList(LocalSection local, CriticalSection critical) {
-        Transition<Place> preProtocol = new TransitionBuilder<Place>()
-                .addInput(local, 1)
-                .addInput(mutex, 1)
-                .addOutput(critical, 1)
-                .build();
-        Transition<Place> postProtocol = new TransitionBuilder<Place>()
-                .addInput(critical, 1)
-                .addOutput(local, 1)
-                .addOutput(mutex, 1)
-                .build();
-        List<Transition<Place>> result = new LinkedList<>();
-        result.add(preProtocol);
-        result.add(postProtocol);
-        return result;
-    }
+
 
 
 
@@ -83,18 +68,26 @@ public class Main {
         public void run() {
             while (true) {
                 try {
-
                     if (preProtocol == petriNet.fire(transitions)) {
-                        System.out.println(name + '.');
-                        petriNet = petriNet;
+                        System.out.print(name + '.');
                     }
                 } catch (InterruptedException e) {
                     System.out.println("co");
                 }
+                if (name == "A" || name == "B") {
+                    int j = 0;
+                    for (int k = 0; k < 10; k++) {
+                        for (int i = 0; i < 1000 * 1000 * 1000; i++) {
+                            j = j + k + i;
+                        }
+                    }
+                    //System.err.print(j);
+                    //System.err.print(name);
+                    
+                }
             }
         }
     }
-
 
 
     public static void main(String[] args) throws InterruptedException {
@@ -111,10 +104,25 @@ public class Main {
         transitions.addAll(makeTransList(localB, criticalB));
         transitions.addAll(makeTransList(localC, criticalC));
 
-        Set<Map<Place, Integer>> r =  petriNet.reachable(transitions);
+        List<Transition<Place>> ta = makeTransList(localA, criticalA);
+        List<Transition<Place>> tb = makeTransList(localB, criticalB);
+
+        //petriNet.fire(ta);
+        //petriNet.fire(tb);
+
+        Thread tB = new Thread(new Process("B", localB, criticalB));
+
+        /*for (int i = 0; i <= 1000 * 1000 * 100; i++) {
+            int j = i + 1;
+        }*/
+        //petriNet = petriNet;
+
+        //petriNet.fire(ta);
+        //petriNet = petriNet;
+
 
         Thread tA = new Thread(new Process("A", localA, criticalA));
-        Thread tB = new Thread(new Process("B", localB, criticalB));
+
         Thread tC = new Thread(new Process("C", localC, criticalC));
 
         tA.start();
