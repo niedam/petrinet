@@ -5,8 +5,6 @@ import java.util.*;
 
 public class MainTest2 {
 
-
-
     public static void main(String[] args) throws Exception {
         Map<String, Integer> map = new HashMap<>();
         map.put("Cat",7);

@@ -7,15 +7,18 @@ import java.util.LinkedList;
 import java.util.List;
 
 public class Places {
+
+    /** Interface for places in Alternator */
     public interface Place {
         public String getName();
     }
 
-    public static class Mutex implements Place {
+    /** Singleton class for Mutex */
+    static class Mutex implements Place {
         private static final Mutex instance = new Mutex();
         private Mutex() {
         }
-        public static Mutex get() {
+        static Mutex get() {
             return instance;
         }
         @Override
@@ -24,7 +27,8 @@ public class Places {
         }
     }
 
-    public abstract static class ThreadSection implements Place {
+    /** Abstract class for thread's places */
+    abstract static class ThreadSection implements Place {
         private String idThread;
         private String sectionType;
 
@@ -39,36 +43,40 @@ public class Places {
         }
     }
 
-    public static class CriticalSection extends ThreadSection {
-        public CriticalSection(String name) {
+    /** Critical section - allows writting. */
+    static class CriticalSection extends ThreadSection {
+        CriticalSection(String name) {
             super(name, "CriticalSection");
         }
     }
 
-    public static class WaitingSection extends ThreadSection {
-        public WaitingSection(String name) {
+    /** Waiting section - for other thread get their critical section. */
+    static class WaitingSection extends ThreadSection {
+        WaitingSection(String name) {
             super(name, "WaitingSection");
         }
     }
 
-    public static class ReadySection extends ThreadSection {
-        public ReadySection(String name) {
+    /** Ready section - able to get Mutex and go to Critical section. */
+    static class ReadySection extends ThreadSection {
+        ReadySection(String name) {
             super(name, "ReadySection");
         }
     }
 
-    public static class ThreadPack {
-        public final CriticalSection criticalSection;
-        public final WaitingSection waitingSection;
-        public final ReadySection readySection;
-        public final Transition<Place> runCriticalSection;
-        public final List<Transition<Place>> transitions;
+    /** Utilities for tread- their places, transitions. */
+    static class ThreadPack {
+        final String idName;
+        final CriticalSection criticalSection;
+        final WaitingSection waitingSection;
+        final ReadySection readySection;
+        final Transition<Place> runCriticalSection;
+        final List<Transition<Place>> transitions;
 
         private ThreadPack(String idName) {
-            //CriticalSection criticalSection = new CriticalSection(idName);
+            this.idName = idName;
             criticalSection = new CriticalSection(idName);
             this.readySection = new ReadySection(idName);
-            //WaitingSection waitingSection = new WaitingSection(idName);
             waitingSection = new WaitingSection(idName);
             this.runCriticalSection = new TransitionBuilder<Place>()
                     .addInput(Mutex.get(), 1 )
@@ -91,13 +99,14 @@ public class Places {
             transitions.add(runCriticalSection);
         }
 
-        public static ThreadPack makeThreadPack(String name) {
+        /** Build all thread's places and transitions. */
+        static ThreadPack makeThreadPack(String name) {
             return new ThreadPack(name);
         }
 
-        public void addTransition(Transition<Place> transition) {
+        /** Extend thread's transition list */
+        void addTransition(Transition<Place> transition) {
             transitions.add(transition);
-            return;
         }
     }
 }

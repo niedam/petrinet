@@ -10,6 +10,7 @@ import alternator.Places.*;
 public class Main {
     private static PetriNet<Place> petriNet;
 
+    /** Runners for thread */
     protected static class Process implements Runnable {
         private final List<Transition<Place>> transitions;
         private final Transition<Place> runCriticalSection;
@@ -42,54 +43,61 @@ public class Main {
         }
     }
 
+    /** Check if in every critical section is only one process. */
     private static boolean testSafety(Map<Place, Integer> map, CriticalSection c1,
                                         CriticalSection c2, CriticalSection c3) {
         return (!((map.get(c1) != null && map.get(c2) != null)
-                    || (map.get(c1) != null && map.get(c3) != null)
-                    || (map.get(c2) != null && map.get(c3) != null))?true:false);
+                || (map.get(c1) != null && map.get(c3) != null)
+                || (map.get(c2) != null && map.get(c3) != null)));
     }
 
     public static void main(String[] args) throws InterruptedException {
         Map<Place, Integer> enviroment = new HashMap<>();
-        ThreadPack packA = ThreadPack.makeThreadPack("A");
-        ThreadPack packB = ThreadPack.makeThreadPack("B");
-        ThreadPack packC = ThreadPack.makeThreadPack("C");
-        enviroment.put(packA.readySection, 1);
-        enviroment.put(packB.readySection, 1);
-        enviroment.put(packC.readySection, 1);
-        enviroment.put(Mutex.get(), 1);
-        petriNet = new PetriNet<>(enviroment, false);
-
+        // All places and transitions connected with particularly thread
+        ThreadPack A = ThreadPack.makeThreadPack("A");
+        ThreadPack B = ThreadPack.makeThreadPack("B");
+        ThreadPack C = ThreadPack.makeThreadPack("C");
+        // Build special transition to prevent dead-lock
         Transition<Place> noDeadLockTransition = new TransitionBuilder<Place>()
                 .addInput(Mutex.get(), 1)
-                .addInput(packA.waitingSection, 1)
-                .addInput(packB.waitingSection, 1)
-                .addInput(packC.waitingSection, 1)
+                .addInput(A.waitingSection, 1)
+                .addInput(B.waitingSection, 1)
+                .addInput(C.waitingSection, 1)
                 .addOutput(Mutex.get(), 1)
-                .addOutput(packA.readySection, 1)
-                .addOutput(packB.readySection, 1)
-                .addOutput(packC.readySection, 1)
+                .addOutput(A.readySection, 1)
+                .addOutput(B.readySection, 1)
+                .addOutput(C.readySection, 1)
                 .build();
+        // Add tokens to places in Petri net
+        enviroment.put(A.readySection, 1);
+        enviroment.put(B.readySection, 1);
+        enviroment.put(C.readySection, 1);
+        enviroment.put(Mutex.get(), 1);
+        // Build Petri net
+        petriNet = new PetriNet<>(enviroment, false);
+        // All transitions in net to simulation with PetriNet.reachable()
         List <Transition<Place>> transitions = new LinkedList<>();
-        transitions.addAll(packA.transitions);
-        transitions.addAll(packB.transitions);
-        transitions.addAll(packC.transitions);
+        transitions.addAll(A.transitions);
+        transitions.addAll(B.transitions);
+        transitions.addAll(C.transitions);
         transitions.add(noDeadLockTransition);
+        // Generate all possible states using list of all transitions.
         Set<Map<Place,Integer>> markingsSet = petriNet.reachable(transitions);
         System.out.println("Posible marking state: " + markingsSet.size());
-
+        // Test safety of all states.
         boolean safety = true;
         for (Map<Place, Integer> map: markingsSet) {
-            safety = safety && testSafety(map, packA.criticalSection, packB.criticalSection, packC.criticalSection);
+            safety = safety && testSafety(map, A.criticalSection, B.criticalSection, C.criticalSection);
         }
         System.out.println("All states are safety: " + safety);
-
-        packA.addTransition(noDeadLockTransition);
-        packB.addTransition(noDeadLockTransition);
-        packC.addTransition(noDeadLockTransition);
-        Thread threadA = new Thread(new Process(packA), "A");
-        Thread threadB = new Thread(new Process(packB), "B");
-        Thread threadC = new Thread(new Process(packC), "C");
+        // Extent all threads' packages with no-Dead-Lock transition.
+        A.addTransition(noDeadLockTransition);
+        B.addTransition(noDeadLockTransition);
+        C.addTransition(noDeadLockTransition);
+        // Creating threads with their transitions and places packages.
+        Thread threadA = new Thread(new Process(A), A.idName);
+        Thread threadB = new Thread(new Process(B), B.idName);
+        Thread threadC = new Thread(new Process(C), C.idName);
         threadA.start();
         threadB.start();
         threadC.start();
