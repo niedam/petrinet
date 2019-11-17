@@ -1,10 +1,11 @@
 package alternator;
 import petrinet.*;
-
-import java.util.*;
-
+import java.util.List;
+import java.util.LinkedList;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Set;
 import alternator.Places.*;
-
 
 
 public class Main {
@@ -22,14 +23,31 @@ public class Main {
 
         @Override
         public void run() {
-            while (true) {
-                try {
-                    if (runCriticalSection == petriNet.fire(transitions)) {
-                        System.out.print(Thread.currentThread().getName() + '.');
-                    }
-                } catch (InterruptedException e) {
-                    System.out.println("co");
+            while (true) try {
+                if (runCriticalSection == petriNet.fire(transitions)) {
+                    System.out.print(Thread.currentThread().getName() + '.');
                 }
+            } catch (InterruptedException e) {
+                break;
+            }
+        }
+    }
+
+    /** Runners to prevent dead-lock */
+    protected static class AntyDeadLock implements Runnable {
+
+        private final List<Transition<Place>> transitions;
+
+        AntyDeadLock(List<Transition<Place>> transitions) {
+            this.transitions = transitions;
+        }
+
+        @Override
+        public void run() {
+            while (true) try {
+                petriNet.fire(transitions);
+            } catch (InterruptedException e) {
+                break;
             }
         }
     }
@@ -51,7 +69,7 @@ public class Main {
                 || (map.get(c2) != null && map.get(c3) != null)));
     }
 
-    public static void main(String[] args) throws InterruptedException {
+    public static void main(String[] args) {
         Map<Place, Integer> enviroment = new HashMap<>();
         // All places and transitions connected with particularly thread
         ThreadPack A = ThreadPack.makeThreadPack("A");
@@ -68,6 +86,8 @@ public class Main {
                 .addOutput(B.readySection, 1)
                 .addOutput(C.readySection, 1)
                 .build();
+        List <Transition<Place>> noDeadLockList = new LinkedList<>();
+        noDeadLockList.add(noDeadLockTransition);
         // Add tokens to places in Petri net
         enviroment.put(A.readySection, 1);
         enviroment.put(B.readySection, 1);
@@ -83,17 +103,16 @@ public class Main {
         transitions.add(noDeadLockTransition);
         // Generate all possible states using list of all transitions.
         Set<Map<Place,Integer>> markingsSet = petriNet.reachable(transitions);
-        System.out.println("Posible marking state: " + markingsSet.size());
+        System.out.println("Possible marking state: " + markingsSet.size());
         // Test safety of all states.
         boolean safety = true;
         for (Map<Place, Integer> map: markingsSet) {
             safety = safety && testSafety(map, A.criticalSection, B.criticalSection, C.criticalSection);
         }
         System.out.println("All states are safety: " + safety);
-        // Extent all threads' packages with no-Dead-Lock transition.
-        A.addTransition(noDeadLockTransition);
-        B.addTransition(noDeadLockTransition);
-        C.addTransition(noDeadLockTransition);
+        //Run additionally threads to control dead-lock states
+        Thread noDeadLockControl = new Thread(new AntyDeadLock(noDeadLockList));
+        noDeadLockControl.start();
         // Creating threads with their transitions and places packages.
         Thread threadA = new Thread(new Process(A), A.idName);
         Thread threadB = new Thread(new Process(B), B.idName);
@@ -101,5 +120,15 @@ public class Main {
         threadA.start();
         threadB.start();
         threadC.start();
+        try {
+            Thread.sleep(30 * 1000);
+        } catch (InterruptedException e) {
+            System.err.println(e.toString());
+        } finally {
+            threadA.interrupt();
+            threadB.interrupt();
+            threadC.interrupt();
+            noDeadLockControl.interrupt();
+        }
     }
 }

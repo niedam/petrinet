@@ -45,11 +45,8 @@ public class PetriNet<T> {
         Map<T, Integer> first_state = new HashMap<>();
         try {
             fireSecurity.acquire();
-            try {
-                first_state = new HashMap<>(places);
-            } finally {
-                fireSecurity.release();
-            }
+            first_state = new HashMap<>(places);
+            fireSecurity.release();
         } catch(final InterruptedException e) {
             System.err.println(e);
         }
@@ -57,16 +54,14 @@ public class PetriNet<T> {
         queue.add(first_state);
         while (!queue.isEmpty()) {
             Map<T, Integer> state = queue.poll();
-            boolean zaglodzono = false;
             for (Transition<T> t: transitions) {
                 Map<T, Integer> new_state = new HashMap<>(state);
-                zaglodzono = zaglodzono || fireOne(new_state, t);
+                fireOne(new_state, t);
                 if (!result.contains(new_state)) {
                     queue.add(new_state);
                     result.add(new_state);
                 }
             }
-            int k =0;
         }
         return result;
     }
@@ -80,7 +75,7 @@ public class PetriNet<T> {
      */
     public Transition<T> fire(Collection<Transition<T>> transitions) throws InterruptedException {
         if (transitions == null) {
-            transitions = new LinkedList<>();
+            return null;
         } else {
             transitions = new LinkedList<>(transitions);
         }
@@ -130,17 +125,20 @@ public class PetriNet<T> {
     }
 
     /**
-     *
-     * @param key - key of place in net
+     * @param[in] key - key of place in net
      * @return Amount of tokens at place with key
      */
-    public Integer getToken(T key) throws InterruptedException {
-        fireSecurity.acquire();
-        int result = places.getOrDefault(key, 0);
-        fireSecurity.release();
+    public Integer getToken(T key) {
+        int result = 0;
+        try {
+            fireSecurity.acquire();
+            result = places.getOrDefault(key, 0);
+            fireSecurity.release();
+        } catch (InterruptedException e) {
+            System.err.println(Thread.currentThread() + " " + e);
+        }
         return result;
     }
-
 
     /**
      * Fire one transition on map of place

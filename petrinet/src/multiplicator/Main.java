@@ -6,16 +6,14 @@ import java.util.*;
 
 public class Main {
 
-    static PetriNet<Place> petriNet;
-    static volatile boolean work = true;
+    private static PetriNet<Place> petriNet;
 
     private enum Place {
-        A, B, Empty, Buffor, Result;
+        A, B, Empty, Buffor, Result
     }
 
     private static class Process implements Runnable {
-
-        List <Transition<Place>> transitions;
+        private List <Transition<Place>> transitions;
 
         Process(List<Transition<Place>> transitions) {
             this.transitions = new LinkedList<>(transitions);
@@ -24,54 +22,51 @@ public class Main {
         @Override
         public void run() {
             int count = 0;
-            while (work) {
+            while (true) {
                 try {
                     petriNet.fire(transitions);
                     count++;
                 } catch (InterruptedException e) {
                     System.out.println(Thread.currentThread().getName() + " fired transitions " + count + " times.");
+                    break;
                 }
             }
         }
     }
 
-
-    private static void printStateSet(Set<Map<Place, Integer>> markingsSet) {
-        for (Map<Place, Integer> i: markingsSet) {
-            System.out.print('*');
-            for (Map.Entry<Place, Integer> j: i.entrySet()) {
-                System.out.print("(" + j + ") ");
-            }
-            System.out.print('\n');
-        }
-    }
-
     public static void main(String[] args) {
-
-
+        Scanner input = new Scanner(System.in);
+        // Create initial map for Petri net
         Map<Place, Integer> init = new LinkedHashMap<>();
-        init.put(Place.A, 2);
-        init.put(Place.B, 3);
-
-        petriNet = new PetriNet<Place>(init, false);
-
+        int A = input.nextInt();
+        int B = input.nextInt();
+        init.put(Place.A, A);
+        init.put(Place.B, B);
+        // Build Petri net
+        petriNet = new PetriNet<>(init, false);
+        // If A-place is empty, B-place can be reseted (0 * B = 0, res + 0 * B = res)
         Transition<Place> zeroA = new TransitionBuilder<Place>()
                 .addInput(Place.B, 1)
                 .addInhibitor(Place.A)
                 .addReset(Place.B)
                 .build();
+        // If B-blace is empty and Buffor is empty, A-place can be reseted (A * 0 = 0, res + A * 0 = res)
         Transition<Place> zeroB = new TransitionBuilder<Place>()
                 .addInhibitor(Place.B)
                 .addInhibitor(Place.Buffor)
                 .addInput(Place.A, 1)
                 .addReset(Place.A)
                 .build();
+        // If A-place and B-place is empty, then on computation has been ended
         Transition<Place> endedComputation = new TransitionBuilder<Place>()
                 .addInhibitor(Place.A)
                 .addInhibitor(Place.B)
                 .addReset(Place.Buffor)
                 .addReset(Place.Empty)
                 .build();
+        // If B-place is empty and all their tokens are on Buffer-place,
+        // tokens at A-place can be decreased and all tokens from Buffer have to
+        // be moved to B-place
         Transition<Place> decreaseA = new TransitionBuilder<Place>()
                 .addInput(Place.A, 1)
                 .addInput(Place.Buffor, 1)
@@ -80,6 +75,7 @@ public class Main {
                 .addOutput(Place.Empty, 1)
                 .addOutput(Place.Buffor, 1)
                 .build();
+        // Increase result, move token to Buffer-place from B-place
         Transition<Place> decreaseB = new TransitionBuilder<Place>()
                 .addInput(Place.B, 1)
                 .addInput(Place.A, 1)
@@ -88,56 +84,49 @@ public class Main {
                 .addOutput(Place.Result, 1)
                 .addOutput(Place.A, 1)
                 .build();
+        // Move token from Buffor to B-place
         Transition<Place> moveBuffor = new TransitionBuilder<Place>()
                 .addInput(Place.Buffor, 1)
-                .addInput(Place.Empty, 1)
-                .addInput(Place.A, 1)
                 .addOutput(Place.B, 1)
-                .addOutput(Place.A, 1)
+                .addInput(Place.Empty, 1)
                 .addOutput(Place.Empty, 1)
-                .build();
-        Transition<Place> resetB = new TransitionBuilder<Place>()
-                .addInhibitor(Place.Buffor)
-                .addInput(Place.Empty, 1)
-                .addInput(Place.B, 1)
                 .addInput(Place.A, 1)
-                .addOutput(Place.B, 1)
                 .addOutput(Place.A, 1)
                 .build();
-
-        List<Transition<Place>> lista = new LinkedList<>();
-        lista.add(zeroA);
-        lista.add(zeroB);
-        lista.add(decreaseA);
-        lista.add(decreaseB);
-        lista.add(moveBuffor);
-        lista.add(resetB);
-
-        Thread[] t = new Thread[4];
-        for (int i = 0; i < 4; i++) {
-            t[i] = new Thread(new Process(lista));
-            t[i].start();
-        }
-
-        List<Transition<Place>> lista2 = new LinkedList<>(lista);
-        lista2.add(endedComputation);
-        Set<Map<Place, Integer>> res = petriNet.reachable(lista2);
-        printStateSet(res);
-
+        // All tokens from Buffor had been moved to B-place
+        Transition<Place> resetB = new TransitionBuilder<Place>()
+                .addInput(Place.B, 1)
+                .addOutput(Place.B, 1)
+                .addInput(Place.Empty, 1)
+                .addInhibitor(Place.Buffor)
+                .addInput(Place.A, 1)
+                .addOutput(Place.A, 1)
+                .build();
+        // Make collection with all transition
+        List<Transition<Place>> transitions = new LinkedList<>();
+        transitions.add(zeroA);
+        transitions.add(zeroB);
+        transitions.add(decreaseA);
+        transitions.add(decreaseB);
+        transitions.add(moveBuffor);
+        transitions.add(resetB);
+        // Make collection with final transition
         List<Transition<Place>> end = new LinkedList<>();
         end.add(endedComputation);
+        // Run 4 threads
+        Thread[] t = new Thread[4];
+        for (int i = 0; i < 4; i++) {
+            t[i] = new Thread(new Process(transitions));
+            t[i].start();
+        }
+        // Fire final transition
         try {
             petriNet.fire(end);
         } catch (InterruptedException e) {
-            System.out.print(e);
+            System.err.println(e.toString());
         }
-
-        try {
-            System.out.println(petriNet.getToken(Place.Result));
-        } catch (InterruptedException e) {
-
-        }
-
+        System.out.println(petriNet.getToken(Place.Result));
+        //
         for (int i = 0; i < 4; i++) {
             t[i].interrupt();
         }

@@ -2,15 +2,14 @@ package alternator;
 
 import petrinet.Transition;
 import petrinet.TransitionBuilder;
-
 import java.util.LinkedList;
 import java.util.List;
 
 public class Places {
 
     /** Interface for places in Alternator */
-    public interface Place {
-        public String getName();
+    interface Place {
+        String getName();
     }
 
     /** Singleton class for Mutex */
@@ -102,11 +101,6 @@ public class Places {
         /** Build all thread's places and transitions. */
         static ThreadPack makeThreadPack(String name) {
             return new ThreadPack(name);
-        }
-
-        /** Extend thread's transition list */
-        void addTransition(Transition<Place> transition) {
-            transitions.add(transition);
         }
     }
 }

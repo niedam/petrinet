@@ -11,13 +11,5 @@ public class Debugs<T> {
         return pn.testEnabledTransition(pn.places, t);
     }
 
-    private static void printStateSet(Set<Map<Places.Place, Integer>> markingsSet) {
-        for (Map<Places.Place, Integer> i: markingsSet) {
-            for (Map.Entry<Places.Place, Integer> j: i.entrySet()) {
-                System.out.print("(" + j.getKey().getName() + ", " + j.getValue() + ") ");
-            }
-            System.out.print('\n');
-        }
-    }
 
 }
