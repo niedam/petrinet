@@ -47,6 +47,9 @@ public class Main {
         environment.put(Place.B, B);
         // Build Petri net
         petriNet = new PetriNet<>(environment, true);
+
+        // Scheme of all transitions in Petrinet_multiplicator.jpg
+
         // If A-place is empty, B-place can be reseted (0 * B = 0, res + 0 * B = res)
         Transition<Place> zeroA = new TransitionBuilder<Place>()
                 .addInput(Place.B, 1)

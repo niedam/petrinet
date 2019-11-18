@@ -81,14 +81,14 @@ public class Main {
         // critical section has been released.
         // When thread go out from critical section, release waiting threads
         // (because now they can again entry to critical section)
-        Transition<Place> emptyWaitingPlace = new TransitionBuilder<Place>()
+        Transition<Place> emptyWaitingPlaces = new TransitionBuilder<Place>()
                 .addReset(Releaser.get())
                 .addInhibitor(A.waitingSection)
                 .addInhibitor(B.waitingSection)
                 .addInhibitor(C.waitingSection)
                 .build();
-        List <Transition<Place>> emptyWaitingPlaceList = new LinkedList<>();
-        emptyWaitingPlaceList.add(emptyWaitingPlace);
+        List <Transition<Place>> emptyWaitingPlacesList = new LinkedList<>();
+        emptyWaitingPlacesList.add(emptyWaitingPlaces);
         // Add tokens to places in Petri net
         environment.put(A.readySection, 1);
         environment.put(B.readySection, 1);
@@ -101,7 +101,7 @@ public class Main {
         all_transitions.addAll(A.transitions);
         all_transitions.addAll(B.transitions);
         all_transitions.addAll(C.transitions);
-        all_transitions.add(emptyWaitingPlace);
+        all_transitions.add(emptyWaitingPlaces);
         // Generate all possible states using list of all transitions.
         Set<Map<Place,Integer>> markingsSet = petriNet.reachable(all_transitions);
         System.out.println("Possible marking state: " + markingsSet.size());
@@ -112,7 +112,7 @@ public class Main {
         }
         System.out.println("All states are safety: " + safety);
         // Run additionally thread checking that waiting places were left.
-        Thread releaser = new Thread(new AntyDeadLock(emptyWaitingPlaceList));
+        Thread releaser = new Thread(new AntyDeadLock(emptyWaitingPlacesList));
         releaser.start();
         // Creating threads with their transitions and places packages.
         Thread threadA = new Thread(new Process(A), A.idName);
