@@ -97,10 +97,11 @@ public class Main {
                 .addOutput(Place.A, 1)
                 .build();
         // All tokens from Buffor had been moved to B-place
-        Transition<Place> resetB = new TransitionBuilder<Place>()
+        // Place Empty must be reseted.
+        Transition<Place> resetEmpty = new TransitionBuilder<Place>()
                 .addInput(Place.B, 1)
                 .addOutput(Place.B, 1)
-                .addInput(Place.Empty, 1)
+                .addReset(Place.Empty)
                 .addInhibitor(Place.Buffor)
                 .addInput(Place.A, 1)
                 .addOutput(Place.A, 1)
@@ -112,7 +113,7 @@ public class Main {
         transitions.add(decreaseA);
         transitions.add(decreaseB);
         transitions.add(moveBuffor);
-        transitions.add(resetB);
+        transitions.add(resetEmpty);
         // Make collection with final transition
         List<Transition<Place>> end = new LinkedList<>();
         end.add(endedComputation);
