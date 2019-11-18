@@ -25,7 +25,9 @@ public class Main {
         public void run() {
             while (true) try {
                 if (runCriticalSection == petriNet.fire(transitions)) {
-                    System.out.print(Thread.currentThread().getName() + '.');
+                    // Split printing name and dot
+                    System.out.print(Thread.currentThread().getName());
+                    System.out.print('.');
                 }
             } catch (InterruptedException e) {
                 break;
@@ -70,39 +72,38 @@ public class Main {
     }
 
     public static void main(String[] args) {
-        Map<Place, Integer> enviroment = new HashMap<>();
+        Map<Place, Integer> environment = new HashMap<>();
         // All places and transitions connected with particularly thread
         ThreadPack A = ThreadPack.makeThreadPack("A");
         ThreadPack B = ThreadPack.makeThreadPack("B");
         ThreadPack C = ThreadPack.makeThreadPack("C");
-        // Build special transition to prevent dead-lock
-        Transition<Place> noDeadLockTransition = new TransitionBuilder<Place>()
-                .addInput(Mutex.get(), 1)
-                .addInput(A.waitingSection, 1)
-                .addInput(B.waitingSection, 1)
-                .addInput(C.waitingSection, 1)
-                .addOutput(Mutex.get(), 1)
-                .addOutput(A.readySection, 1)
-                .addOutput(B.readySection, 1)
-                .addOutput(C.readySection, 1)
+        // Special transition to check that every threads waiting after their
+        // critical section has been released.
+        // When thread go out from critical section, release waiting threads
+        // (because now they can again entry to critical section)
+        Transition<Place> emptyWaitingPlace = new TransitionBuilder<Place>()
+                .addReset(Releaser.get())
+                .addInhibitor(A.waitingSection)
+                .addInhibitor(B.waitingSection)
+                .addInhibitor(C.waitingSection)
                 .build();
-        List <Transition<Place>> noDeadLockList = new LinkedList<>();
-        noDeadLockList.add(noDeadLockTransition);
+        List <Transition<Place>> emptyWaitingPlaceList = new LinkedList<>();
+        emptyWaitingPlaceList.add(emptyWaitingPlace);
         // Add tokens to places in Petri net
-        enviroment.put(A.readySection, 1);
-        enviroment.put(B.readySection, 1);
-        enviroment.put(C.readySection, 1);
-        enviroment.put(Mutex.get(), 1);
+        environment.put(A.readySection, 1);
+        environment.put(B.readySection, 1);
+        environment.put(C.readySection, 1);
+        environment.put(Mutex.get(), 1);
         // Build Petri net
-        petriNet = new PetriNet<>(enviroment, false);
+        petriNet = new PetriNet<>(environment, true);
         // All transitions in net to simulation with PetriNet.reachable()
-        List <Transition<Place>> transitions = new LinkedList<>();
-        transitions.addAll(A.transitions);
-        transitions.addAll(B.transitions);
-        transitions.addAll(C.transitions);
-        transitions.add(noDeadLockTransition);
+        List <Transition<Place>> all_transitions = new LinkedList<>();
+        all_transitions.addAll(A.transitions);
+        all_transitions.addAll(B.transitions);
+        all_transitions.addAll(C.transitions);
+        all_transitions.add(emptyWaitingPlace);
         // Generate all possible states using list of all transitions.
-        Set<Map<Place,Integer>> markingsSet = petriNet.reachable(transitions);
+        Set<Map<Place,Integer>> markingsSet = petriNet.reachable(all_transitions);
         System.out.println("Possible marking state: " + markingsSet.size());
         // Test safety of all states.
         boolean safety = true;
@@ -110,9 +111,9 @@ public class Main {
             safety = safety && testSafety(map, A.criticalSection, B.criticalSection, C.criticalSection);
         }
         System.out.println("All states are safety: " + safety);
-        //Run additionally threads to control dead-lock states
-        Thread noDeadLockControl = new Thread(new AntyDeadLock(noDeadLockList));
-        noDeadLockControl.start();
+        // Run additionally thread checking that waiting places were left.
+        Thread releaser = new Thread(new AntyDeadLock(emptyWaitingPlaceList));
+        releaser.start();
         // Creating threads with their transitions and places packages.
         Thread threadA = new Thread(new Process(A), A.idName);
         Thread threadB = new Thread(new Process(B), B.idName);
@@ -120,6 +121,7 @@ public class Main {
         threadA.start();
         threadB.start();
         threadC.start();
+        // Main function sleep for 30 sec
         try {
             Thread.sleep(30 * 1000);
         } catch (InterruptedException e) {
@@ -128,7 +130,7 @@ public class Main {
             threadA.interrupt();
             threadB.interrupt();
             threadC.interrupt();
-            noDeadLockControl.interrupt();
+            releaser.interrupt();
         }
     }
 }

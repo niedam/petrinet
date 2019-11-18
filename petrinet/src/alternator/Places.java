@@ -26,6 +26,21 @@ public class Places {
         }
     }
 
+    /** Singleton class for Releaser */
+    static class Releaser implements Place {
+        private static final Releaser instance = new Releaser();
+        private Releaser() {
+        }
+        static Releaser get() {
+            return instance;
+        }
+        @Override
+        public String getName() {
+            return "Releaser";
+        }
+    }
+
+
     /** Abstract class for thread's places */
     abstract static class ThreadSection implements Place {
         private String idThread;
@@ -77,20 +92,31 @@ public class Places {
             criticalSection = new CriticalSection(idName);
             this.readySection = new ReadySection(idName);
             waitingSection = new WaitingSection(idName);
+            // When thread entry to critical section, threads waiting after
+            // their critical section should be released.
+            // It put tokens to Releaser place and allow release waiting threads.
             this.runCriticalSection = new TransitionBuilder<Place>()
                     .addInput(Mutex.get(), 1 )
                     .addInput(readySection, 1)
                     .addOutput(criticalSection, 1)
+                    .addOutput(Releaser.get(), 1)
                     .build();
-            Transition<Place> goReadySection = new TransitionBuilder<Place>()
-                    .addInhibitor(Mutex.get())
-                    .addInput(waitingSection, 1)
-                    .addOutput(readySection, 1)
-                    .build();
+            // Before left critical section and go to waiting section
+            // every other threads in waiting sections must be released.
+            // (this operation is being made by special thread)
             Transition<Place> goWaitingSection = new TransitionBuilder<Place>()
                     .addInput(criticalSection, 1)
+                    .addInhibitor(Releaser.get())
                     .addOutput(waitingSection, 1)
                     .addOutput(Mutex.get(), 1)
+                    .build();
+            // When waiting sections are released, thread can move their token
+            // from waiting section to ready section.
+            Transition<Place> goReadySection = new TransitionBuilder<Place>()
+                    .addInput(Releaser.get(), 1)
+                    .addOutput(Releaser.get(), 1)
+                    .addInput(waitingSection, 1)
+                    .addOutput(readySection, 1)
                     .build();
             transitions = new LinkedList<>();
             transitions.add(goReadySection);

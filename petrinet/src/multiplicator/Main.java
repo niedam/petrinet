@@ -6,6 +6,8 @@ import java.util.*;
 
 public class Main {
 
+    private static final int THREADS = 4;
+
     private static PetriNet<Place> petriNet;
 
     private enum Place {
@@ -36,14 +38,15 @@ public class Main {
 
     public static void main(String[] args) {
         Scanner input = new Scanner(System.in);
-        // Create initial map for Petri net
-        Map<Place, Integer> init = new LinkedHashMap<>();
+        // Create environment map for Petri net
+        Map<Place, Integer> environment = new LinkedHashMap<>();
+        // Get A and B from input and put it in net
         int A = input.nextInt();
         int B = input.nextInt();
-        init.put(Place.A, A);
-        init.put(Place.B, B);
+        environment.put(Place.A, A);
+        environment.put(Place.B, B);
         // Build Petri net
-        petriNet = new PetriNet<>(init, false);
+        petriNet = new PetriNet<>(environment, true);
         // If A-place is empty, B-place can be reseted (0 * B = 0, res + 0 * B = res)
         Transition<Place> zeroA = new TransitionBuilder<Place>()
                 .addInput(Place.B, 1)
@@ -57,7 +60,7 @@ public class Main {
                 .addInput(Place.A, 1)
                 .addReset(Place.A)
                 .build();
-        // If A-place and B-place is empty, then on computation has been ended
+        // If A-place and B-place is empty, then computation has been ended
         Transition<Place> endedComputation = new TransitionBuilder<Place>()
                 .addInhibitor(Place.A)
                 .addInhibitor(Place.B)
@@ -114,9 +117,11 @@ public class Main {
         List<Transition<Place>> end = new LinkedList<>();
         end.add(endedComputation);
         // Run 4 threads
-        Thread[] t = new Thread[4];
-        for (int i = 0; i < 4; i++) {
+        Thread[] t = new Thread[THREADS];
+        for (int i = 0; i < THREADS; i++) {
             t[i] = new Thread(new Process(transitions));
+        }
+        for (int i = 0; i < THREADS; i++) {
             t[i].start();
         }
         // Fire final transition
@@ -127,7 +132,7 @@ public class Main {
         }
         System.out.println(petriNet.getToken(Place.Result));
         //
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < THREADS; i++) {
             t[i].interrupt();
         }
     }
