@@ -12,21 +12,40 @@ According to Wikipedia: https://en.wikipedia.org/wiki/Petri_net
 > Unless an execution policy is defined, the execution of Petri nets is nondeterministic: when multiple transitions are enabled at the same time, they will fire in any order.
 > Since firing is nondeterministic, and multiple tokens may be present anywhere in the net (even in the same place), Petri nets are well suited for modeling the concurrent behavior of distributed systems. 
 
-If you are interested in seeing how it works, I really recommend you this interactive tutorial:
+If you are interested in seeing how it works, I __really(!)__ recommend you this interactive tutorial:
 * https://www.informatik.uni-hamburg.de/TGI/PetriNets/introductions/aalst/
 
-### `petrinet` package 
+## `petrinet` package 
 A core part of this repository is package `petrinet`. It contains two required classes: `PetriNet` and `Transition`. 
+The whole package is documented in Doxygen-like comments. 
 
-I also add `TransitionBuilder` class to easier construction of Transition objects (Builder design pattern)..
+According to the requirements, there are two most important functions:
+* `reachable(Collection<Transition<T>> transitions)` - return set of all possible marking reachable in net with given transitions
+* `fire(transitions)` - fire one available transition from given, thread wait if none is available
+ 
+It is safety run those functions concurrently.
+
+I also add `TransitionBuilder` class to easier construction of Transition objects (Builder design pattern).
 
 
-### Modelled with Petri net
-This repository contains two programs using implemented by me Petri net package. They were part of an assignment and model a disturbed system.
+## Modelled with Petri net
+This repository contains two programs using implemented by me Petri net package. They were part of an assignment and model a disturbed systems.
 
 
 
-##### Alternator
+#### Alternator
 
-##### Multiplicator
+The realisation of mutual exclusion with additional requirement: threads must not get critical section two times in a row.
 
+Through 30 seconds 3 threads fire their transitions in Petri net to get access to the critical section, where they print their name and single dot.
+
+Transitions in program:
+![Transitions in Alternator](./petrinet/src/alternator/Petrinet_alternator.jpg)
+
+
+#### Multiplicator
+The program sets the number of tokens in two Places in net depending on numbers `A` and `B` read from standard input. Then create a constant number of threads, whose concurrently fire set of Transitions in this net.
+Finally, when only one Transition will be available, the number of tokens in particular Place in net will be equal to `A * B`. Program prints result of multiplication to standard output.
+
+Transitions in program:
+![Transitions in Multiplicator](./petrinet/src/multiplicator/Petrinet_multiplicator.jpg)
