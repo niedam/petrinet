@@ -73,6 +73,9 @@ public class Main {
 
     public static void main(String[] args) {
         Map<Place, Integer> environment = new HashMap<>();
+        
+        // Scheme of all transitions in Petrinet_alternator.jpg
+        
         // All places and transitions connected with particularly thread
         ThreadPack A = ThreadPack.makeThreadPack("A");
         ThreadPack B = ThreadPack.makeThreadPack("B");
