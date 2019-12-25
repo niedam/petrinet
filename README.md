@@ -23,7 +23,7 @@ According to the requirements, there are two most important functions:
 * `reachable(Collection<Transition<T>> transitions)` - return set of all possible marking reachable in net with given transitions
 * `fire(transitions)` - fire one available transition from given, thread wait if none is available
  
-It is safety run those functions concurrently.
+It is safely run those functions concurrently.
 
 I also add `TransitionBuilder` class to easier construction of Transition objects (Builder design pattern).
 
